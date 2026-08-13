@@ -3,7 +3,9 @@
       USE sglobal_mod, ONLY: out_unit, r8, mu0, m_p, chag, lnLamb,
      $   Q_e,Q_i,pr,pe,c_beta,ds,tau,
      $   eta,visc,rho_s,lu,omega_e,omega_i,
-     $   delta_n,
+     $   delta_n,layfac,slayer_devmode,
+     $   layfac_max=>singthresh_slayer_layfac,
+     $   layfac_frac=>singthresh_slayer_layfac_frac,
      $   Q
       USE delta_mod, ONLY: riccati,riccati_out,
      $   parflow_flag,PeOhmOnly_flag
@@ -36,7 +38,7 @@ c-----------------------------------------------------------------------
       REAL(r8) :: inQ,inQ_e,inQ_i,inpe,inc_beta,inds,intau,inlu
       REAL(r8) :: mrs,nrs,rho,b_l,v_a,Qconv,Q0,delta_n_p,
      $            lbeta,tau_i,tau_h,tau_r,tau_v
-      REAL(r8) :: inQ_min,inQ_max,Q_sol,maxbal
+      REAL(r8) :: inQ_min,inQ_max,Q_sol,maxbal,balprev,growmax
       INTEGER :: ipass
       INTEGER, PARAMETER :: nref=4
       REAL(r8) :: xpk,rlo,rhi,rdq,rdqc,xq,bloc,jloc
@@ -112,6 +114,10 @@ c-----------------------------------------------------------------------
       inds=ds
       intau=tau
       Q0=Q
+      layfac=MAX(0.0_r8,layfac_max)
+      IF (layfac_frac>0.0_r8)
+     $     layfac=MIN(layfac,layfac_frac*ABS(Q0-inQ_e))
+      IF (slayer_devmode) layfac=0.0_r8
 c-----------------------------------------------------------------------
 c     calculate basic delta, torque, balance, error fields.
 c-----------------------------------------------------------------------
@@ -175,7 +181,9 @@ c-----------------------------------------------------------------------
       rlo=xpk-2.0*rdqc
       rhi=xpk+2.0*rdqc
       maxbal=-HUGE(maxbal)
+      growmax=1.0_r8
       DO ipass=1,nref
+         balprev=maxbal
          rdq=(rhi-rlo)/inum
          DO i=0,inum
             xq=rlo+REAL(i)*rdq
@@ -189,6 +197,8 @@ c-----------------------------------------------------------------------
                xpk=xq
             ENDIF
          ENDDO
+         IF (balprev>0.0_r8 .AND. maxbal>0.0_r8)
+     $        growmax=MAX(growmax,maxbal/balprev)
          rlo=xpk-2.0*rdq
          rhi=xpk+2.0*rdq
       ENDDO
@@ -197,7 +207,22 @@ c-----------------------------------------------------------------------
       ! If even the refined nose is non-positive the surface has no
       ! finite penetration threshold; floor at zero and warn rather
       ! than propagating a NaN into b_crit/Phi_res_crit downstream.
-      IF (maxbal>0.0_r8) THEN
+c     A resolved locking nose stops growing once the refinement has
+c     bracketed it: every later pass reproduces the same maximum. A
+c     pole in bal=2P(Q0-Q)/lhs does not -- lhs has zeros away from
+c     Q_e that layfac does not excise, and a pass landing nearer one
+c     multiplies maxbal. What comes back is then set by how close the
+c     grid fell, not by the saddle-node bifurcation, and it moves with
+c     the compiler. Test every pass, not just the last: the jump can
+c     come at any refinement level and later passes may add nothing.
+      IF (maxbal>0.0_r8 .AND. growmax>2.0_r8
+     $     .AND. .NOT.slayer_devmode) THEN
+         br_th=0.0_r8
+         WRITE(*,'(1x,a,i0,a,i0,a,es10.3)')
+     $      "!! WARNING: SLAYER refinement diverging (pole, not a "//
+     $      "locking nose) at m=",mms,", n=",nns,
+     $      "; br_th set to 0; worst per-pass growth=",growmax
+      ELSE IF (maxbal>0.0_r8) THEN
          br_th=sqrt(maxbal/lu*(sval**2.0/2.0))
       ELSE
          br_th=0.0_r8

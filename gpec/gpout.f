@@ -45,6 +45,7 @@ c-----------------------------------------------------------------------
       USE utilities, ONLY : progressbar
       USE pentrc_interface, ONLY : zi,mi,wefac,wpfac,initialize_pentrc
       USE gslayer_mod, ONLY : gpec_slayer
+      USE sglobal_mod, ONLY : slayer_devmode
       USE idcon_mod, ONLY : check
 
       IMPLICIT NONE
@@ -1039,8 +1040,7 @@ c-----------------------------------------------------------------------
       DEALLOCATE(singcoup_out, singcoup_out_bvecs, singcoup_out_vals,
      $     tmfac, fldflxmn, temp1, flxtofld, matms)
       IF (osing<msing) THEN
-         DEALLOCATE(localcoup_out_bvecs, localcoup_out_vals,
-     $        localcoup_out_vecs, matmo)
+         DEALLOCATE(localcoup_out_bvecs, localcoup_out_vals, matmo)
       ENDIF
 c-----------------------------------------------------------------------
 c     terminate.
@@ -1588,8 +1588,10 @@ c-----------------------------------------------------------------------
       TYPE(spline_type) :: sr
 
       REAL(r8), DIMENSION(msing) :: b_crit_slayer, b_crit_callen,
+     $    b_crit_dev, psi_r, q_r,
      $    ti_r, te_r, ni_r, ne_r,
      $    q1_r, we_r, wi_r, rh_r, r1_r, dP_r, P_r
+      INTEGER :: imode,dncid,ddid,dpid,dqid,dbid,dcid
       REAL(r8) :: omega_i,omega_e,jxb,omega_sol,br_th,slayer_shear,
      $     pleft, pright, psileft, psiright
       REAL(r8) :: slayer_inpr_loc
@@ -1716,6 +1718,9 @@ c-----------------------------------------------------------------------
          hw_sat(ising) = 0.0_r8
          hw_min(ising) = 0.0_r8
          b_crit_slayer(ising) = 0.0_r8
+         b_crit_dev(ising) = 0.0_r8
+         psi_r(ising) = singtype(ising)%psifac
+         q_r(ising) = singtype(ising)%q
          b_crit_callen(ising) = 0.0_r8
          dP_r(ising) = 0.0_r8
          P_r(ising) = sq%f(2) / mu0
@@ -1886,11 +1891,25 @@ c-----------------------------------------------------------------------
             ELSE
                slayer_inpr_loc = slayer_inpr
             ENDIF
+c     Solve the layer twice. imode=1 forces layfac=0 and switches the
+c     refinement-convergence rejection off, which is exactly what the
+c     develop branch does, and lands in the companion netcdf; imode=2
+c     uses the gpec.in settings and lands in the usual one. The field
+c     solve above is not repeated, so the second pass is cheap. mode 2
+c     runs last so delta_s/psi0/jxb/omega_sol keep the patched values.
+            DO imode=1,2
+               slayer_devmode=(imode==1)
             CALL gpec_slayer(kin%f(2),kin%f(4)/e,kin%f(1),kin%f(3)/e,
      $           kin%f(9),kin%f(5),omega_e,omega_i,sq%f(4),slayer_shear,
      $           bt0,sr%f(1),ro,mi,slayer_inpr_loc,resm,nn,ascii_flag,
      $           delta_s,psi0,jxb,omega_sol,br_th)
+               IF (imode==1) THEN
+                  b_crit_dev(ising)=br_th
+               ELSE
             b_crit_slayer(ising)=br_th  ! Tesla. Normal resonant field comparable to singflx
+               ENDIF
+            ENDDO
+            slayer_devmode=.FALSE.
          ENDIF
 
          IF (verbose) THEN
@@ -2190,6 +2209,31 @@ c-----------------------------------------------------------------------
          CALL check( nf90_put_var(fncid, pr_id, P_r) )
          CALL check( nf90_put_var(fncid, bc_id, b_crit_slayer) )
          CALL check( nf90_put_var(fncid, pcc_id, b_crit_callen) )
+c     Companion file holding the develop-branch thresholds for the same
+c     surfaces, so a patched run can be diffed against unpatched GPEC
+c     without building and running develop as well.
+         CALL check( nf90_create("gpec_slayer_develop_n"//
+     $        TRIM(sn)//".nc",
+     $        cmode=or(NF90_CLOBBER,NF90_64BIT_OFFSET), ncid=dncid) )
+         CALL check( nf90_def_dim(dncid,"psi_n_rational",msing,
+     $        ddid) )
+         CALL check( nf90_def_var(dncid,"psi_n_rational",
+     $        nf90_double,(/ddid/), dpid) )
+         CALL check( nf90_def_var(dncid,"q_rational",nf90_double,
+     $        (/ddid/), dqid) )
+         CALL check( nf90_def_var(dncid,"Phi_res_crit",nf90_double,
+     $        (/ddid/), dbid) )
+         CALL check( nf90_put_att(dncid, dbid, "units", "T") )
+         CALL check( nf90_put_att(dncid, dbid, "long_name",
+     $     "SLAYER critical resonant field, develop-branch layfac") )
+         CALL check( nf90_def_var(dncid,"Phi_res_crit_callen",
+     $        nf90_double,(/ddid/), dcid) )
+         CALL check( nf90_enddef(dncid) )
+         CALL check( nf90_put_var(dncid, dpid, psi_r) )
+         CALL check( nf90_put_var(dncid, dqid, q_r) )
+         CALL check( nf90_put_var(dncid, dbid, b_crit_dev) )
+         CALL check( nf90_put_var(dncid, dcid, b_crit_callen) )
+         CALL check( nf90_close(dncid) )
          CALL check( nf90_put_var(fncid, k_id, chirikov) )
          CALL check( nf90_put_var(fncid, ti_id, ti_r) )
          CALL check( nf90_put_var(fncid, te_id, te_r) )

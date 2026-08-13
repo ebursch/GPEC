@@ -10,6 +10,9 @@
       REAL(r8) :: Q_e,Q_i,pr,pe,c_beta,ds,tau
       REAL(r8) :: eta,visc,rho_s,lu,omega_e,omega_i,
      $            delta_n,layfac
+      REAL(r8) :: singthresh_slayer_layfac=0.02_r8,
+     $            singthresh_slayer_layfac_frac=0.25_r8
+      LOGICAL :: slayer_devmode=.FALSE.
       COMPLEX(r8) :: Q
 
       REAL(r8), PARAMETER :: pi=3.1415926535897932385, mu0=4e-7*pi,

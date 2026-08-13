@@ -13,6 +13,8 @@ c-----------------------------------------------------------------------
       PROGRAM gpec_main
       USE gpdiag_mod
       USE gpout_mod
+      USE sglobal_mod, ONLY: singthresh_slayer_layfac,
+     $    singthresh_slayer_layfac_frac
       USE rdcon_mod
       USE coil_mod, ONLY : cmhigh, ip_direction, bt_direction,
      $    coil_read,
@@ -73,7 +75,9 @@ c-----------------------------------------------------------------------
      $     xclebsch_flag,pbrzphi_flag,verbose,max_linesout,filter_flag,
      $     netcdf_flag,ascii_flag,singthresh_flag,
      $     singthresh_callen_flag,singthresh_slayer_flag,
-     $     singthresh_slayer_inpr,singthresh_slayer_inpr_prof
+     $     singthresh_slayer_inpr,singthresh_slayer_inpr_prof,
+     $     singthresh_slayer_layfac,
+     $     singthresh_slayer_layfac_frac
       NAMELIST/gpec_diagnose/singcurs_flag,xbcontra_flag,
      $     xbnobo_flag,d3_flag,div_flag,xbst_flag,jacfac_flag,
      $     pmodbmn_flag,rzphibx_flag,radvar_flag,eigen_flag,magpot_flag,

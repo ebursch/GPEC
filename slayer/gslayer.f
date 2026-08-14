@@ -37,6 +37,7 @@ c-----------------------------------------------------------------------
       REAL(r8) :: mrs,nrs,rho,b_l,v_a,Qconv,Q0,delta_n_p,
      $            lbeta,tau_i,tau_h,tau_r,tau_v
       REAL(r8) :: inQ_min,inQ_max,Q_sol,maxbal
+      REAL(r8) :: RR, PP, QQ
       INTEGER :: ipass
       INTEGER, PARAMETER :: nref=4
       REAL(r8) :: xpk,rlo,rhi,rdq,rdqc,xq,bloc,jloc
@@ -113,6 +114,34 @@ c-----------------------------------------------------------------------
       intau=tau
       Q0=Q
 c-----------------------------------------------------------------------
+c     calculate R, P, Q
+c-----------------------------------------------------------------------
+      RR = tau_h**(1.0_r8/15.0_r8)*
+     $     (bt/b_l)**(2.0_r8/5.0_r8)/
+     $     (tau_r*tau_v)**(1.0_r8/30.0_r8)
+
+      PP = tau_r/tau_v
+
+      QQ = tau_h**(2.0_r8/3.0_r8) * tau_r**(1.0_r8/3.0_r8) * omega
+      WRITE(*,*)'!!!RR=',RR
+      WRITE(*,*)'!!!PP=',PP
+      WRITE(*,*)'!!!QQ=',QQ
+
+      if (RR .lt. 1.0_r8) then
+         write(*,'("Linear regime")')
+      
+      elseif (QQ .lt. PP**(-1.0_r8/3.0_r8)*RR**(-2.0_r8)) then
+         write(*,'("Rutherford regime")')
+      
+      elseif (QQ .lt. PP**(-5.0_r8/42.0_r8)
+     $        *(1.0_r8+PP)**(-3.0_r8/14.0_r8)
+     $        *RR**(-5.0_r8/7.0_r8)) then
+         write(*,'("Transition regime")')
+      
+      else
+         write(*,'("Waelbroeck regime")')
+      endif
+c-----------------------------------------------------------------------
 c     calculate basic delta, torque, balance, error fields.
 c-----------------------------------------------------------------------
       delta_n_p=1e-2
@@ -135,6 +164,38 @@ c-----------------------------------------------------------------------
       ENDIF
 
       ! Scan of rotation
+      WRITE(*,*)'inQ_e=',inQ_e
+      WRITE(*,*)'inQ_i=',inQ_i
+      WRITE(*,*)'inpr=',inpr
+      WRITE(*,*)'tau_r=',tau_r
+      WRITE(*,*)'tau_h=',tau_h
+      WRITE(*,*)'lu=',lu
+       
+      WRITE(*,*)'inc_beta=',inc_beta
+      WRITE(*,*)'inds=',inds
+      WRITE(*,*)'intau=',intau
+      WRITE(*,*)'inpe=',inpe
+      WRITE(*,*)'omega=',omega
+      WRITE(*,*) 'n_e=',n_e
+      WRITE(*,*) 't_e=',t_e
+      WRITE(*,*) 'n_i=',n_i
+      WRITE(*,*) 't_i=',t_i
+      WRITE(*,*) 'zeff=',zeff
+      WRITE(*,*) 'omega_e=',omega_e
+      WRITE(*,*) 'omega_i=',omega_i
+      WRITE(*,*) 'qval=',qval
+      WRITE(*,*) 'sval=',sval
+      WRITE(*,*) 'bt=',bt
+      WRITE(*,*) 'rs=',rs
+      WRITE(*,*) 'R0=',R0
+      WRITE(*,*) 'mu_i=',mu_i
+      WRITE(*,*) 'inpr=',inpr
+      WRITE(*,*) 'delta=',delta
+      WRITE(*,*) 'psi0=',psi0
+      WRITE(*,*) 'jxb=',jxb
+      WRITE(*,*) 'omega_sol=',omega_sol
+      WRITE(*,*) 'br_th=',br_th      
+
       inQ_max=10.0
       inQ_min=-10.0
       inum=200
@@ -205,6 +266,14 @@ c-----------------------------------------------------------------------
      $      "!! WARNING: SLAYER torque balance has no positive "//
      $      "maximum at m=",mms,", n=",nns,"; br_th set to 0"
       ENDIF
+      WRITE(*,*)'inQs=',inQs
+      WRITE(*,*)'deltal=',deltal
+      WRITE(*,*)'jxbl=',jxbl
+      WRITE(*,*)'bal=',bal
+      WRITE(*,*)'index=',index
+      WRITE(*,*)'Q_sol=',Q_sol
+      WRITE(*,*)'omega_sol=',omega_sol
+      WRITE(*,*)'br_th=',br_th
       DEALLOCATE(inQs,deltal,jxbl,bal)
 
       RETURN

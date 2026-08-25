@@ -135,9 +135,9 @@ c-----------------------------------------------------------------------
       ENDIF
 
       ! Scan of rotation
-      inQ_max=10.0
-      inQ_min=-10.0
-      inum=200
+      inQ_max=5.0 ! 10
+      inQ_min=-5.0 ! -10
+      inum=20000   ! 200
       ALLOCATE(inQs(0:inum),deltal(0:inum),jxbl(0:inum),bal(0:inum))
       DO i=0,inum
          inQs(i)=inQ_min+(REAL(i)/inum)*(inQ_max-inQ_min)
@@ -175,28 +175,58 @@ c-----------------------------------------------------------------------
       rlo=xpk-2.0*rdqc
       rhi=xpk+2.0*rdqc
       maxbal=-HUGE(maxbal)
-      DO ipass=1,nref
-         rdq=(rhi-rlo)/inum
-         DO i=0,inum
-            xq=rlo+REAL(i)*rdq
-            dloc=riccati(xq,inQ_e,inQ_i,inpr,
-     $           inc_beta,inds,intau,inpe)
-            jloc=-AIMAG(1.0/(dloc+delta_n_p))
-            bloc=2.0*inpr*(Q0-xq)/jloc
-            IF (bloc==bloc .AND. ABS(bloc)<HUGE(bloc)
-     $           .AND. bloc>maxbal) THEN
-               maxbal=bloc
-               xpk=xq
-            ENDIF
-         ENDDO
-         rlo=xpk-2.0*rdq
-         rhi=xpk+2.0*rdq
-      ENDDO
-      Q_sol=xpk
-      omega_sol=xpk/Qconv
+      !    DO ipass=1,nref
+      !       rdq=(rhi-rlo)/inum
+      !       DO i=0,inum
+      !          xq=rlo+REAL(i)*rdq
+      !          dloc=riccati(xq,inQ_e,inQ_i,inpr,
+      !   $           inc_beta,inds,intau,inpe)
+      !          jloc=-AIMAG(1.0/(dloc+delta_n_p))
+      !          bloc=2.0*inpr*(Q0-xq)/jloc
+      !          IF (bloc==bloc .AND. ABS(bloc)<HUGE(bloc)
+      !   $           .AND. bloc>maxbal) THEN
+      !             maxbal=bloc
+      !             xpk=xq
+      !          ENDIF
+      !       ENDDO
+      !       rlo=xpk-2.0*rdq
+      !       rhi=xpk+2.0*rdq
+      !    ENDDO
+      !    Q_sol=xpk
+      !    omega_sol=xpk/Qconv
       ! If even the refined nose is non-positive the surface has no
       ! finite penetration threshold; floor at zero and warn rather
       ! than propagating a NaN into b_crit/Phi_res_crit downstream.
+
+      ! Write bcrit conversion, so user can convert to b_crit in Tesla.
+      br_th=sqrt(maxbal/lu*(sval**2.0/2.0))
+      WRITE(*,'(1x,a,i0,a,i0,a,es17.8e3)') "SLAYER torque balance "//
+     $   "max at m=",mms,", n=",nns," is ",maxbal
+      WRITE(*,'(1x,a,es17.8e3)')
+     $   "Conversion factor (sval**2.0/2.0)/lu): ",(sval**2.0/2.0)/lu
+      WRITE(*,'(1x,a,es17.8e3)')
+     $   "lu: ",lu
+      WRITE(*,'(1x,a,es17.8e3)')
+     $   "sval: ",sval
+      WRITE(*,'(1x,a,es17.8e3)') "Critical field (b_crit): ",br_th
+      WRITE(*,'(1x,a,es17.8e3)')
+     $   "Critical field (b_crit) in Tesla: ",
+     $   br_th*(lu*(sval**2.0/2.0))
+
+      ! Write slayer quantites to file for diagnostic purposes
+      IF(ascii_flag)THEN
+         OPEN(UNIT=out_unit,FILE="gpec_slayer_quantities_m"//
+     $        TRIM(sm)//"_n"//TRIM(sn)//".out",
+     $        STATUS="UNKNOWN")
+         WRITE(out_unit,'(1x,7(a17))') "Q0","Q_e",
+     $        "Q_i","lu","sval", "(sval**2.0/2.0)/lu)", "inpr"
+         DO i=0,1
+            WRITE(out_unit,'(1x,7(es17.8e3))')
+     $           Q0,inQ_e,inQ_i,lu,sval,(sval**2.0/2.0)/lu,inpr
+         ENDDO
+         CLOSE(out_unit)
+      ENDIF
+
       IF (maxbal>0.0_r8) THEN
          br_th=sqrt(maxbal/lu*(sval**2.0/2.0))
       ELSE

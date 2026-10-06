@@ -171,10 +171,13 @@ c-----------------------------------------------------------------------
       ! non-finite entries (NaN from 0/0, Inf from a near-zero jxbl).
       index=MAXLOC(bal,MASK=(bal==bal .AND. ABS(bal)<HUGE(bal)))
       rdqc=(inQ_max-inQ_min)/inum
-      xpk=inQs(index(1))
+      ! MAXLOC returns a 1-based position into the 0-based bal array.
+      xpk=inQs(index(1)-1)
       rlo=xpk-2.0*rdqc
       rhi=xpk+2.0*rdqc
-      maxbal=-HUGE(maxbal)
+      maxbal=bal(index(1)-1)
+      Q_sol=xpk
+      omega_sol=xpk/Qconv
       !    DO ipass=1,nref
       !       rdq=(rhi-rlo)/inum
       !       DO i=0,inum
